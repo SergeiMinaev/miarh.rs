@@ -67,11 +67,11 @@ pub async fn reg_listeners(tls_listener_fd: i32, tcp_listener_fd: i32) {
     let params = EPOLL_PARAMS.read().await;
     let _ = add_interest(
         params.epoll_fd, tls_listener_fd,
-        libc::epoll_event { events: READ_FLAG as u32, u64: EPOLL_TLS_LISTENER_KEY }
+        libc::epoll_event { events: READ_ONESHOT_FLAGS as u32, u64: EPOLL_TLS_LISTENER_KEY }
     ).unwrap();
     let _ = add_interest(
         params.epoll_fd, tcp_listener_fd,
-        libc::epoll_event { events: READ_FLAG as u32, u64: EPOLL_TCP_LISTENER_KEY }
+        libc::epoll_event { events: READ_ONESHOT_FLAGS as u32, u64: EPOLL_TCP_LISTENER_KEY }
     ).unwrap();
 }
 
