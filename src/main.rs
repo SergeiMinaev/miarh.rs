@@ -1,3 +1,6 @@
+use miarh::conf::Conf;
+
 fn main() {
-    println!("Here we go");
+    let conf = Conf::new();
+    println!("Here we go.\n{conf:?}");
 }

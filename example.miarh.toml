@@ -1,0 +1,14 @@
+https_host_port = "192.168.0.101:4430"
+http_host_port = "127.0.0.1:8000"
+acme_challenge_dir = "/work/miarh/acme_challenge/"
+acme_challenge_url = "/.well-known/acme-challenge/"
+
+[[servers]]
+    name = "mysite"
+    hostnames = [
+      "mysite.local",
+      "mysite.com",
+    ]
+    socket_path = "/work/mysite/mysite.sock"
+    static_dir = "/work/mysite/static"
+    index_path = "/work/mysite/index.html"

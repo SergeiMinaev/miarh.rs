@@ -1,3 +1,6 @@
+pub mod conf;
+
+
 #[cfg(test)]
 mod tests {
     #[test]
