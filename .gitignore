@@ -14,3 +14,4 @@ Cargo.lock
 
 miarh.toml
 *.pfx
+*.pid
