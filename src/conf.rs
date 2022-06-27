@@ -6,7 +6,7 @@ use async_lock::RwLock;
 use serde::Deserialize;
 
 
-static _CONF: Lazy<RwLock<Conf>> = Lazy::new(|| {
+pub static CONF: Lazy<RwLock<Conf>> = Lazy::new(|| {
     RwLock::new(Conf::new())
 });
 
