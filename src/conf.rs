@@ -1,14 +1,14 @@
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
-use lazy_static::lazy_static;
+use once_cell::sync::Lazy;
 use async_lock::RwLock;
 use serde::Deserialize;
 
 
-lazy_static! {
-    pub static ref CONF: RwLock<Conf> = RwLock::new(Conf::new());
-}
+static _CONF: Lazy<RwLock<Conf>> = Lazy::new(|| {
+    RwLock::new(Conf::new())
+});
 
 
 #[derive(Debug, Deserialize)]

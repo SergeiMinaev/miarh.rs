@@ -1,8 +1,8 @@
 use std::os::unix::io::{RawFd};
 use std::io::Error;
 use libc;
-use lazy_static::lazy_static;
 use async_lock::{RwLock};
+use once_cell::sync::Lazy;
 
 
 pub const READ_FLAG: i32 = libc::EPOLLIN;
@@ -14,9 +14,9 @@ pub const EPOLL_MAX_EVENTS: u32 = 1024;
 pub const EPOLL_MAX_WAIT_TIME: u32 = 5000;
 
 
-lazy_static! {
-    pub static ref EPOLL_PARAMS: RwLock<EpollParams> = RwLock::new(epoll_params());
-}
+static _EPOLL_PARAMS: Lazy<RwLock<EpollParams>> = Lazy::new(|| {
+    RwLock::new(epoll_params())
+});
 
 
 #[allow(unused_macros)]
