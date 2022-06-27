@@ -13,3 +13,4 @@ Cargo.lock
 *.swp
 
 miarh.toml
+*.pfx
