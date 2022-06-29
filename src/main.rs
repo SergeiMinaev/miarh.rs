@@ -1,10 +1,10 @@
 use futures_lite::future;
 use miarh::conf::Conf;
-use miarh::server::run_server;
+use miarh::listener::LISTENER;
 
 
 fn main() {
     let conf = Conf::new();
     println!("Here we go.\n{conf:?}");
-    future::block_on(run_server());
+    future::block_on(LISTENER.main_loop());
 }
