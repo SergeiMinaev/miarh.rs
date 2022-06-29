@@ -28,17 +28,17 @@ impl Listener {
     }
     pub async fn anew() -> Self {
         let conf = CONF.read().await;
-        let tls_addr: SocketAddr = SocketAddr::new(
-            IpAddr::V4(Ipv4Addr::from_str(&conf.ip).unwrap()), conf.tls_port
+        let https_addr: SocketAddr = SocketAddr::new(
+            IpAddr::V4(Ipv4Addr::from_str(&conf.ip).unwrap()), conf.https_port
         );
-        let tcp_addr: SocketAddr = SocketAddr::new(
-            IpAddr::V4(Ipv4Addr::from_str(&conf.ip).unwrap()), conf.tcp_port
+        let http_addr: SocketAddr = SocketAddr::new(
+            IpAddr::V4(Ipv4Addr::from_str(&conf.ip).unwrap()), conf.http_port
         );
         let tls_identity = Identity::from_pkcs12(
             include_bytes!("../identity.pfx"), "").unwrap();
         Self {
-            https_listener: Async::<TcpListener>::bind(tls_addr).unwrap(),
-            http_listener: Async::<TcpListener>::bind(tcp_addr).unwrap(),
+            https_listener: Async::<TcpListener>::bind(https_addr).unwrap(),
+            http_listener: Async::<TcpListener>::bind(http_addr).unwrap(),
             tls_acceptor: TlsAcceptor::from(
                 native_tls::TlsAcceptor::new(tls_identity).unwrap()
             ),
@@ -46,9 +46,9 @@ impl Listener {
         }
     }
     pub async fn main_loop(&self) {
-        let tls_fd: i32 = self.https_listener.as_raw_fd().clone();
-        let tcp_fd: i32 = self.http_listener.as_raw_fd().clone();
-        self.epoll.reg_listeners(tls_fd, tcp_fd).unwrap();
+        let https_fd: i32 = self.https_listener.as_raw_fd().clone();
+        let http_fd: i32 = self.http_listener.as_raw_fd().clone();
+        self.epoll.reg_listeners(https_fd, http_fd).unwrap();
         loop {
             for ev in &self.epoll.events {
                 spawn(stream_handler::take_event(*ev)).detach();
