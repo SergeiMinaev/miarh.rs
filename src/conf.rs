@@ -23,8 +23,8 @@ pub struct ServerConf {
 #[derive(Debug, Deserialize)]
 pub struct Conf {
     pub ip: String,
-    pub tls_port: u16,
-    pub tcp_port: u16,
+    pub https_port: u16,
+    pub http_port: u16,
     pub acme_challenge_dir: String,
     pub acme_challenge_url: String,
     pub servers: Vec<ServerConf>,

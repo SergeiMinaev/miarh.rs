@@ -1,6 +1,6 @@
 ip = "127.0.0.1"
-tls_port = 4430
-tcp_port = 8000
+https_port = 4430
+http_port = 8000
 acme_challenge_dir = "/work/miarh/acme_challenge/"
 acme_challenge_url = "/.well-known/acme-challenge/"
 

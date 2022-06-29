@@ -49,8 +49,11 @@ impl Listener {
         let https_fd: i32 = self.https_listener.as_raw_fd().clone();
         let http_fd: i32 = self.http_listener.as_raw_fd().clone();
         self.epoll.reg_listeners(https_fd, http_fd).unwrap();
+        let mut events = epoll::init_events();
         loop {
-            for ev in &self.epoll.events {
+            println!("--- tick ---");
+            let _ = self.epoll.wait(&mut events);
+            for ev in &events {
                 spawn(stream_handler::take_event(*ev)).detach();
             }
         }

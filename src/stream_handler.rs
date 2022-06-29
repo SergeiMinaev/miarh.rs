@@ -24,7 +24,7 @@ impl StreamHandler {
     }
     pub async fn handle(&mut self) {
         if self.main_ev.u64 == epoll::EPOLL_TLS_LISTENER_KEY {
-            println!("TLS listener event");
+            println!("HTTPS listener event");
             self.handle_https_listener_ev().await;
         } else {
             println!("Stream event");

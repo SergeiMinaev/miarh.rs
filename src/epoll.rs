@@ -29,7 +29,6 @@ macro_rules! syscall {
 pub struct Epoll {
     pub epoll_fd: i32,
     pub dynamic_key: u64,
-    pub events: Vec<libc::epoll_event>,
 }
 
 impl Epoll {
@@ -37,7 +36,6 @@ impl Epoll {
         Ok(Self {
             epoll_fd: epoll_create()?,
             dynamic_key: EPOLL_DYNKEY,
-            events: Vec::with_capacity(EPOLL_MAX_EVENTS),
         })
     }
     pub fn reg_stream(&mut self, stream_fd: i32) {
@@ -65,14 +63,14 @@ impl Epoll {
         )?;
         Ok(())
     }
-    pub fn wait(&mut self) -> Result<(), Error> {
-        self.events.clear();
+    pub fn wait(&self, events: &mut Vec<libc::epoll_event>) -> Result<(), Error> {
+        events.clear();
         let count = syscall!(epoll_wait(
-            self.epoll_fd, self.events.as_mut_ptr(),
+            self.epoll_fd, events.as_mut_ptr(),
             EPOLL_MAX_EVENTS as libc::c_int,
             EPOLL_MAX_WAIT_TIME as i32,
         ))? as usize;
-        unsafe { self.events.set_len(count) };
+        unsafe { events.set_len(count) };
         Ok(())
     }
 }
@@ -89,3 +87,8 @@ fn add_interest(epoll_fd: RawFd, fd: RawFd, mut event: libc::epoll_event
     syscall!(epoll_ctl(epoll_fd, libc::EPOLL_CTL_ADD, fd, &mut event))?;
     Ok(())
 }
+
+pub fn init_events() -> Vec<libc::epoll_event> {
+    Vec::with_capacity(EPOLL_MAX_EVENTS)
+}
+
