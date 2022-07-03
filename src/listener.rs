@@ -77,7 +77,11 @@ impl Listener {
                             Err(e) => println!("Epoll err: {e}"),
                             Ok(()) => {
                                 let sh = Arc::new(Mutex::new(
-                                        StreamHandler::new(tls_stream)
+                                        StreamHandler::new(
+                                            self.epoll.epoll_fd,
+                                            self.epoll.tls_stream_id,
+                                            tls_stream
+                                        )
                                 ));
                                 self.stream_handlers.insert(
                                     self.epoll.tls_stream_id, sh);

@@ -30,7 +30,6 @@ macro_rules! syscall {
 
 pub struct Epoll {
     pub epoll_fd: i32,
-    pub https_tcp_stream_id: u64,
     pub tls_stream_id: u64,
 }
 
@@ -38,7 +37,6 @@ impl Epoll {
     pub fn new() -> Result<Self, Error> {
         Ok(Self {
             epoll_fd: epoll_create()?,
-            https_tcp_stream_id: EPOLL_HTTPS_TCP_STREAM_START_ID,
             tls_stream_id: EPOLL_TLS_STREAM_START_ID,
         })
     }
@@ -56,11 +54,6 @@ impl Epoll {
                 events: READ_FLAG as u32, u64: EPOLL_HTTP_LISTENER_ID
             }
         )?;
-        Ok(())
-    }
-    pub async fn reg_https_tcp_stream(&mut self, stream_fd: i32) -> Result<(), Error> {
-        self.https_tcp_stream_id += 1;
-        self.reg_stream(stream_fd, self.https_tcp_stream_id).await?;
         Ok(())
     }
     pub async fn reg_tls_stream(&mut self, stream_fd: i32) -> Result<(), Error> {
@@ -100,9 +93,9 @@ fn add_interest(epoll_fd: RawFd, fd: RawFd, mut event: libc::epoll_event
     Ok(())
 }
 
-fn _rearm_interest(epoll_fd: RawFd, fd: RawFd, mut event: libc::epoll_event
-                ) -> Result<(), Error> {
-    syscall!(epoll_ctl(epoll_fd, libc::EPOLL_CTL_MOD, fd, &mut event))?;
+pub fn rearm_interest(epoll_fd: RawFd, fd: RawFd, ev_id: u64) -> Result<(), Error> {
+    let mut ev = libc::epoll_event { events: READ_ONESHOT_FLAGS as u32, u64: ev_id };
+    syscall!(epoll_ctl(epoll_fd, libc::EPOLL_CTL_MOD, fd, &mut ev))?;
     Ok(())
 }
 
