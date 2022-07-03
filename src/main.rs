@@ -1,10 +1,9 @@
 use futures_lite::future;
 use miarh::conf::Conf;
-use miarh::listener::LISTENER;
+use miarh::listener::{Listener};
 
 
 fn main() {
-    let conf = Conf::new();
-    println!("Here we go.\n{conf:?}");
-    future::block_on(LISTENER.main_loop());
+    let mut listener = Listener::new();
+    future::block_on(listener.main_loop());
 }

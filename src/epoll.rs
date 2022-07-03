@@ -6,11 +6,13 @@ use libc;
 pub const READ_FLAG: i32 = libc::EPOLLIN;
 pub const READ_ONESHOT_FLAGS: i32 = libc::EPOLLONESHOT | libc::EPOLLIN;
 pub const WRITE_FLAG: i32 = libc::EPOLLOUT;
-pub const EPOLL_TCP_LISTENER_KEY: u64 = 99;
-pub const EPOLL_TLS_LISTENER_KEY: u64 = 100;
-pub const EPOLL_DYNKEY: u64 = 101;
 pub const EPOLL_MAX_EVENTS: usize = 1024;
 pub const EPOLL_MAX_WAIT_TIME: u32 = 5000;
+
+pub const EPOLL_HTTPS_LISTENER_ID: u64 = 0;
+pub const EPOLL_HTTP_LISTENER_ID: u64 = 1;
+pub const EPOLL_HTTPS_TCP_STREAM_START_ID: u64 = 18_000_000_000_000_000_000;
+pub const EPOLL_TLS_STREAM_START_ID: u64 = 10_000_000_000_000_000_000;
 
 
 #[allow(unused_macros)]
@@ -28,38 +30,48 @@ macro_rules! syscall {
 
 pub struct Epoll {
     pub epoll_fd: i32,
-    pub dynamic_key: u64,
+    pub https_tcp_stream_id: u64,
+    pub tls_stream_id: u64,
 }
 
 impl Epoll {
     pub fn new() -> Result<Self, Error> {
         Ok(Self {
             epoll_fd: epoll_create()?,
-            dynamic_key: EPOLL_DYNKEY,
+            https_tcp_stream_id: EPOLL_HTTPS_TCP_STREAM_START_ID,
+            tls_stream_id: EPOLL_TLS_STREAM_START_ID,
         })
-    }
-    pub fn reg_stream(&mut self, stream_fd: i32) {
-        self.dynamic_key += 1;
-        let r = add_interest(self.epoll_fd, stream_fd,
-            libc::epoll_event { events: READ_ONESHOT_FLAGS as u32,
-            u64: self.dynamic_key });
-        match r {
-            Ok(_) => {}, Err(e) => { println!("EPOLL: unable to reg stream: {e}") }
-        }
     }
     pub fn reg_listeners(&self, https_listener_fd: i32, http_listener_fd: i32
                          ) -> Result<(), Error> {
         let _ = add_interest(
             self.epoll_fd, https_listener_fd,
             libc::epoll_event {
-                events: READ_ONESHOT_FLAGS as u32, u64: EPOLL_TLS_LISTENER_KEY
+                events: READ_FLAG as u32, u64: EPOLL_HTTPS_LISTENER_ID
             }
         )?;
         let _ = add_interest(
             self.epoll_fd, http_listener_fd,
             libc::epoll_event { 
-                events: READ_ONESHOT_FLAGS as u32, u64: EPOLL_TCP_LISTENER_KEY
+                events: READ_FLAG as u32, u64: EPOLL_HTTP_LISTENER_ID
             }
+        )?;
+        Ok(())
+    }
+    pub async fn reg_https_tcp_stream(&mut self, stream_fd: i32) -> Result<(), Error> {
+        self.https_tcp_stream_id += 1;
+        self.reg_stream(stream_fd, self.https_tcp_stream_id).await?;
+        Ok(())
+    }
+    pub async fn reg_tls_stream(&mut self, stream_fd: i32) -> Result<(), Error> {
+        self.tls_stream_id += 1;
+        self.reg_stream(stream_fd, self.tls_stream_id).await?;
+        Ok(())
+    }
+    pub async fn reg_stream(&mut self, stream_fd: i32, id: u64) -> Result<(), Error> {
+        add_interest(self.epoll_fd, stream_fd,
+            libc::epoll_event { events: READ_ONESHOT_FLAGS as u32,
+            u64: id}
         )?;
         Ok(())
     }
@@ -88,7 +100,12 @@ fn add_interest(epoll_fd: RawFd, fd: RawFd, mut event: libc::epoll_event
     Ok(())
 }
 
+fn _rearm_interest(epoll_fd: RawFd, fd: RawFd, mut event: libc::epoll_event
+                ) -> Result<(), Error> {
+    syscall!(epoll_ctl(epoll_fd, libc::EPOLL_CTL_MOD, fd, &mut event))?;
+    Ok(())
+}
+
 pub fn init_events() -> Vec<libc::epoll_event> {
     Vec::with_capacity(EPOLL_MAX_EVENTS)
 }
-
