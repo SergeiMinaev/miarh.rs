@@ -1,12 +1,13 @@
 use std::io::{ErrorKind};
 use std::fs::File;
 use std::io::Read;
+use std::cmp::min;
 use async_net::TcpStream;
 use async_native_tls::{TlsStream};
 use futures_lite::{AsyncReadExt, AsyncWriteExt};
 
 
-const _MAX_HEADERS_SIZE: u32 = 2048;
+const MAX_HEADERS_SIZE: usize = 2048;
 
 
 pub struct StreamHandler {
@@ -14,6 +15,7 @@ pub struct StreamHandler {
     pub epoll_fd: i32,
     pub tls_stream: TlsStream<TcpStream>,
     pub buffer: Vec<u8>,
+    pub is_headers_valid: bool,
 }
 
 impl StreamHandler {
@@ -24,13 +26,14 @@ impl StreamHandler {
             epoll_fd: epoll_fd,
             tls_stream: tls_stream,
             buffer: Vec::<u8>::new(),
+            is_headers_valid: false,
         }
     }
     pub async fn process(&mut self) {
         println!("Process start...");
         self.read_headers().await;
-        self.parse_headers();
-        if self.is_headers_valid() == false { return }
+        self.validate_headers();
+        if self.is_headers_valid == false { return }
         self.return_static_test().await;
         println!("Process end...");
     }
@@ -38,7 +41,24 @@ impl StreamHandler {
         let is_oneshot = true;
         self.read(is_oneshot).await
     }
-    pub fn parse_headers(&self) {}
+    pub fn validate_headers(&mut self) {
+        let mut start = 0;
+        let mut max_headers_size = min(MAX_HEADERS_SIZE, self.buffer.len());
+        for i in 0..max_headers_size {
+            if self.buffer[i] == b'\r' && self.buffer[i+1] == b'\n' {
+                match std::str::from_utf8(&self.buffer[start..i]) {
+                    Ok(line) => {
+                        // parse header line here
+                    },
+                    Err(e) => {
+                        self.is_headers_valid = false;
+                        return;
+                    }
+                }
+            }
+        }
+        self.is_headers_valid = true;
+    }
     pub fn is_headers_valid(&self) -> bool { true }
     pub async fn read(&mut self, is_oneshot: bool) {
         let mut buf = [0; 1024*32];
