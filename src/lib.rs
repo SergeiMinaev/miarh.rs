@@ -3,6 +3,7 @@ pub mod epoll;
 pub mod spawn;
 pub mod listener;
 pub mod stream_handler;
+pub mod headers;
 
 
 #[cfg(test)]

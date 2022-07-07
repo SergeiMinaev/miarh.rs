@@ -1,13 +1,10 @@
 use std::io::{ErrorKind};
 use std::fs::File;
 use std::io::Read;
-use std::cmp::min;
 use async_net::TcpStream;
 use async_native_tls::{TlsStream};
 use futures_lite::{AsyncReadExt, AsyncWriteExt};
-
-
-const MAX_HEADERS_SIZE: usize = 2048;
+use crate::headers::process_headers;
 
 
 pub struct StreamHandler {
@@ -32,7 +29,7 @@ impl StreamHandler {
     pub async fn process(&mut self) {
         println!("Process start...");
         self.read_headers().await;
-        self.validate_headers();
+        self.process_headers();
         if self.is_headers_valid == false { return }
         //self.return_static_test().await;
         self.return_html_test().await;
@@ -42,25 +39,8 @@ impl StreamHandler {
         let is_oneshot = true;
         self.read(is_oneshot).await
     }
-    pub fn validate_headers(&mut self) {
-        let mut start = 0;
-        let mut max_headers_size = min(MAX_HEADERS_SIZE, self.buffer.len());
-        for i in 0..max_headers_size {
-            if self.buffer[i] == b'\r' && self.buffer[i+1] == b'\n' {
-                match std::str::from_utf8(&self.buffer[start..i]) {
-                    Ok(line) => {
-                        // parse header line here
-                    },
-                    Err(e) => {
-                        self.is_headers_valid = false;
-                        return;
-                    }
-                }
-                i += 1;
-                start = i + 1;
-            }
-        }
-        self.is_headers_valid = true;
+    pub fn process_headers(&mut self) {
+        self.is_headers_valid = process_headers(&self.buffer);
     }
     pub fn is_headers_valid(&self) -> bool { true }
     pub async fn read(&mut self, is_oneshot: bool) {
