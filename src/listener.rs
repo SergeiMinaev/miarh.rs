@@ -1,8 +1,8 @@
-use std::net::{Ipv4Addr, IpAddr, SocketAddr, TcpListener};
+use std::net::{Ipv4Addr, IpAddr, SocketAddr};
 use std::str::FromStr;
 use std::os::unix::io::{AsRawFd};
 use std::collections::HashMap;
-use async_io::{Async};
+use async_net::{TcpListener};
 use async_native_tls::{Identity, TlsAcceptor};
 use futures_lite::future;
 use crate::conf::CONF;
@@ -14,8 +14,8 @@ use std::sync::{Arc};
 
 
 pub struct Listener {
-    pub https_listener: Async<TcpListener>,
-    pub http_listener: Async<TcpListener>,
+    pub https_listener: TcpListener,
+    pub http_listener: TcpListener,
     pub tls_acceptor: TlsAcceptor,
     pub epoll: epoll::Epoll,
     pub stream_handlers: HashMap<u64, Arc<Mutex<StreamHandler>>>,
@@ -37,8 +37,8 @@ impl Listener {
         let tls_identity = Identity::from_pkcs12(
             include_bytes!("../identity.pfx"), "").unwrap();
         Self {
-            https_listener: Async::<TcpListener>::bind(https_addr).unwrap(),
-            http_listener: Async::<TcpListener>::bind(http_addr).unwrap(),
+            https_listener: TcpListener::bind(https_addr).await.unwrap(),
+            http_listener: TcpListener::bind(http_addr).await.unwrap(),
             tls_acceptor: TlsAcceptor::from(
                 native_tls::TlsAcceptor::new(tls_identity).unwrap()
             ),

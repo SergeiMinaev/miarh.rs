@@ -1,41 +1,110 @@
-use std::net::{TcpStream};
-use std::time::Duration;
-use std::io::Error;
-use std::os::unix::io::AsRawFd;
-use async_io::{Async, Timer};
+use std::io::{ErrorKind};
+use std::fs::File;
+use std::io::Read;
+use async_net::TcpStream;
 use async_native_tls::{TlsStream};
-use crate::epoll::rearm_interest;
+use futures_lite::{AsyncReadExt, AsyncWriteExt};
+
+
+const _MAX_HEADERS_SIZE: u32 = 2048;
 
 
 pub struct StreamHandler {
     pub epoll_ev_id: u64,
     pub epoll_fd: i32,
-    pub tls_stream: TlsStream<Async<TcpStream>>,
-    pub is_request_parsed: bool,
-    pub is_request_valid: bool,
-    pub is_response_ready: bool,
+    pub tls_stream: TlsStream<TcpStream>,
+    pub buffer: Vec<u8>,
 }
+
 impl StreamHandler {
     pub fn new(epoll_fd: i32, epoll_ev_id: u64,
-               tls_stream: TlsStream<Async<TcpStream>>) -> Self {
+               tls_stream: TlsStream<TcpStream>) -> Self {
         Self {
             epoll_ev_id: epoll_ev_id,
             epoll_fd: epoll_fd,
             tls_stream: tls_stream,
-            is_request_parsed: false,
-            is_request_valid: false,
-            is_response_ready: false,
+            buffer: Vec::<u8>::new(),
         }
     }
     pub async fn process(&mut self) {
         println!("Process start...");
-        Timer::after(Duration::from_secs(5)).await;
+        self.read_headers().await;
+        self.parse_headers();
+        if self.is_headers_valid() == false { return }
+        self.return_static_test().await;
         println!("Process end...");
-        let _ = self.rearm_interest();
     }
-    pub fn rearm_interest(&self) {
-        let _ = rearm_interest(
-            self.epoll_fd, self.tls_stream.get_ref().as_raw_fd(), self.epoll_ev_id
-        );
+    pub async fn read_headers(&mut self) {
+        let is_oneshot = true;
+        self.read(is_oneshot).await
+    }
+    pub fn parse_headers(&self) {}
+    pub fn is_headers_valid(&self) -> bool { true }
+    pub async fn read(&mut self, is_oneshot: bool) {
+        let mut buf = [0; 1024*32];
+        let mut is_done = false;
+        while is_done == false {
+            match self.tls_stream.read(&mut buf).await {
+                Err(e) if e.kind() == ErrorKind::WouldBlock => {
+                    println!("Stream read err: {e}");
+                }
+                Err(e) => {
+                    println!("Stream read err: {e}");
+                }
+                Ok(bytes_read) => {
+                    if bytes_read == 0 {
+                        is_done = true;
+                    }
+                    self.buffer.extend_from_slice(&buf);
+                    self.buffer = self.buffer[..bytes_read].to_vec();
+                    if is_oneshot {
+                        is_done = true;
+                    }
+                }
+            }
+        }
+    }
+    pub async fn return_static_test(&mut self) {
+        let mut f = File::open("./bg.jpg").unwrap();
+        let mut buf: Vec<u8> = Vec::new();
+        let content: Vec<u8>;
+        f.read_to_end(&mut buf).unwrap();
+        content = buf;
+        let i: i32 = content.len().try_into().unwrap();
+        let content_len = format!("Content-Length: {}\r\n", content.len());
+        let mime_line = "Content-Type: image/jpeg\r\n".to_string();
+        let headers = [
+            "HTTP/1.1 200 OK\r\n",
+            content_len.as_str(),
+            mime_line.as_str(),
+            "\r\n"
+        ];
+        let mut response = headers.join("").to_string().into_bytes();
+        response.extend(content);
+        if true {
+            let _ = self.tls_stream.write_all(&response).await;
+        } else {
+            let mut writed_bytes_num: i32 = 0;
+            while response.is_empty() == false {
+                match self.tls_stream.write(&response).await {
+                    Ok(0) => {
+                        println!("Err: failed to write whole buffer");
+                        break;
+                    },
+                    Ok(n) => {
+                        let nn: i32 = n.try_into().unwrap();
+                        writed_bytes_num += nn;
+                        response = (&response[n..]).to_vec();
+                        println!("Bytes writed: {n}, bytes left: {}.",
+                                 i - writed_bytes_num);
+                    },
+                    Err(e) => {
+                        println!("Err while writing bytes: {e}");
+                        break;
+                    }
+                }
+            }
+        }
+
     }
 }
