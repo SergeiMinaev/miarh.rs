@@ -34,7 +34,8 @@ impl StreamHandler {
         self.read_headers().await;
         self.validate_headers();
         if self.is_headers_valid == false { return }
-        self.return_static_test().await;
+        //self.return_static_test().await;
+        self.return_html_test().await;
         println!("Process end...");
     }
     pub async fn read_headers(&mut self) {
@@ -83,6 +84,15 @@ impl StreamHandler {
                 }
             }
         }
+    }
+    pub async fn return_html_test(&mut self) {
+        let resp = "HTTP/1.1 200 OK\r\n\
+            Content-Length: 12\r\n\
+            \r\n\
+            Hello, world\
+            \r\n\r\n";
+        let resp = resp.to_string().into_bytes();
+        let _ = self.tls_stream.write_all(&resp).await;
     }
     pub async fn return_static_test(&mut self) {
         let mut f = File::open("./bg.jpg").unwrap();
