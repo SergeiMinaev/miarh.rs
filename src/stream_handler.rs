@@ -56,6 +56,8 @@ impl StreamHandler {
                         return;
                     }
                 }
+                i += 1;
+                start = i + 1;
             }
         }
         self.is_headers_valid = true;
