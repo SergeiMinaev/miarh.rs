@@ -4,7 +4,7 @@ use std::io::Read;
 use async_net::TcpStream;
 use async_native_tls::{TlsStream};
 use futures_lite::{AsyncReadExt, AsyncWriteExt};
-use crate::headers::process_headers;
+use crate::headers::{parse_request, Request};
 
 
 pub struct StreamHandler {
@@ -12,7 +12,6 @@ pub struct StreamHandler {
     pub epoll_fd: i32,
     pub tls_stream: TlsStream<TcpStream>,
     pub buffer: Vec<u8>,
-    pub is_headers_valid: bool,
 }
 
 impl StreamHandler {
@@ -23,14 +22,13 @@ impl StreamHandler {
             epoll_fd: epoll_fd,
             tls_stream: tls_stream,
             buffer: Vec::<u8>::new(),
-            is_headers_valid: false,
         }
     }
     pub async fn process(&mut self) {
         println!("Process start...");
         self.read_headers().await;
-        self.process_headers();
-        if self.is_headers_valid == false { return }
+        let req: Request = parse_request(&self.buffer);
+        if req.is_valid() == false { return }
         //self.return_static_test().await;
         self.return_html_test().await;
         println!("Process end...");
@@ -38,9 +36,6 @@ impl StreamHandler {
     pub async fn read_headers(&mut self) {
         let is_oneshot = true;
         self.read(is_oneshot).await
-    }
-    pub fn process_headers(&mut self) {
-        self.is_headers_valid = process_headers(&self.buffer);
     }
     pub fn is_headers_valid(&self) -> bool { true }
     pub async fn read(&mut self, is_oneshot: bool) {

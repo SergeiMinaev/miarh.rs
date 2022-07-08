@@ -1,20 +1,22 @@
-use miarh::headers::process_headers;
-
-
-const CARRIAGE_RETURN: u8 = 13;
-const LINE_FEED: u8 = 10;
+use miarh::headers::parse_request;
 
 
 #[test]
 fn reject_if_no_rn() {
     let buf = "GET / HTTP/1.1";
-    assert_eq!(false, process_headers(&buf.as_bytes().to_vec()));
+    let r = parse_request(&buf.as_bytes().to_vec());
+    assert_eq!(false, r.is_valid());
 }
 
 #[test]
 fn reject_if_bad_utf8() {
-    let valid: Vec<u8> = vec![102, 111, 111, CARRIAGE_RETURN, LINE_FEED];
-    assert_eq!(true, process_headers(&valid));
-    let invalid: Vec<u8> = vec![192, 102, 111, 111, CARRIAGE_RETURN, LINE_FEED];
-    assert_eq!(false, process_headers(&invalid));
+    let mut valid = "GET / HTTP/1.1\r\n".as_bytes().to_vec();
+    let r = parse_request(&valid);
+    assert_eq!(true, r.is_valid());
+
+    let bad_utf_code: u8 = 192;
+    let mut invalid: Vec<u8> = vec![bad_utf_code];
+    invalid.append(&mut valid);
+    let r = parse_request(&invalid);
+    assert_eq!(false, r.is_valid());
 }
