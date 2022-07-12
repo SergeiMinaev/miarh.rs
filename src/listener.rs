@@ -1,8 +1,7 @@
 use std::net::{Ipv4Addr, IpAddr, SocketAddr};
 use std::str::FromStr;
 use std::os::unix::io::{AsRawFd};
-use std::collections::HashMap;
-use async_net::{TcpListener};
+use async_net::{TcpListener, TcpStream};
 use async_native_tls::{Identity, TlsAcceptor};
 use futures_lite::future;
 use crate::conf::CONF;
@@ -16,9 +15,8 @@ use std::sync::{Arc};
 pub struct Listener {
     pub https_listener: TcpListener,
     pub http_listener: TcpListener,
-    pub tls_acceptor: TlsAcceptor,
+    pub tls_acceptor: Arc<Mutex<TlsAcceptor>>,
     pub epoll: epoll::Epoll,
-    pub stream_handlers: HashMap<u64, Arc<Mutex<StreamHandler>>>,
 }
 
 
@@ -39,11 +37,10 @@ impl Listener {
         Self {
             https_listener: TcpListener::bind(https_addr).await.unwrap(),
             http_listener: TcpListener::bind(http_addr).await.unwrap(),
-            tls_acceptor: TlsAcceptor::from(
-                native_tls::TlsAcceptor::new(tls_identity).unwrap()
-            ),
             epoll: epoll::Epoll::new().unwrap(),
-            stream_handlers: HashMap::new(),
+            tls_acceptor: Arc::new(Mutex::new(TlsAcceptor::from(
+                native_tls::TlsAcceptor::new(tls_identity).unwrap()
+            ))),
         }
     }
     pub async fn main_loop(&mut self) {
@@ -56,45 +53,34 @@ impl Listener {
             for ev in &events {
                 let ev_id = ev.u64;
                 if ev_id == epoll::EPOLL_HTTPS_LISTENER_ID {
-                    self.accept().await;
+                    self.accept_and_process_https().await;
                 } else {
-                    spawn(
-                        detachable(Arc::clone(&self.stream_handlers[&ev_id]))
-                    ).detach();
+                    println!("Unknown event");
                 }
             }
         }
     }
-    pub async fn accept(&mut self) {
+    pub async fn accept_and_process_https(&mut self) {
         match self.https_listener.accept().await {
             Err(e) => println!("Unable to accept tcp stream: {e}"),
             Ok((https_tcp_stream, _addr)) => {
-                match self.tls_acceptor.accept(https_tcp_stream).await {
-                    Err(e) => println!("TLS err: {e}"),
-                    Ok(tls_stream) => {
-                        let fd: i32 = tls_stream.get_ref().as_raw_fd();
-                        match self.epoll.reg_tls_stream(fd).await {
-                            Err(e) => println!("Epoll err: {e}"),
-                            Ok(()) => {
-                                let sh = Arc::new(Mutex::new(
-                                        StreamHandler::new(
-                                            self.epoll.epoll_fd,
-                                            self.epoll.tls_stream_id,
-                                            tls_stream
-                                        )
-                                ));
-                                self.stream_handlers.insert(
-                                    self.epoll.tls_stream_id, sh);
-                            }
-                        }
-                    }
-                }
+                spawn(process_in_bg(
+                    https_tcp_stream, Arc::clone(&self.tls_acceptor)
+                )).detach();
             }
         }
     }
 }
 
-async fn detachable(q: Arc<Mutex<StreamHandler>>) {
-    q.lock().await.process().await;
+async fn process_in_bg(
+    https_tcp_stream: TcpStream, tls_acceptor: Arc<Mutex<TlsAcceptor>>
+) {
+    let tls_acceptor = tls_acceptor.lock().await;
+    match tls_acceptor.accept(https_tcp_stream).await {
+        Err(e) => println!("TLS err: {e}"),
+        Ok(tls_stream) => {
+            let mut handler = StreamHandler::new(tls_stream);
+            handler.process().await;
+        }
+    }
 }
-
