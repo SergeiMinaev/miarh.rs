@@ -23,10 +23,11 @@ impl StreamHandler {
     }
     pub async fn process(&mut self) {
         self.read_headers().await;
-        let hp: HeadersParser = parse_headers(&self.buffer);
+        let mut hp: HeadersParser = parse_headers(&self.buffer);
+        hp.check_is_static().await;
         if hp.is_valid() == false { return }
-        if hp.is_static() {
-            self.return_static_test().await;
+        if hp.is_static {
+            if hp.is_static_valid { self.return_static_test().await; }
             return;
         }
         let req: Request = hp.get_req();
