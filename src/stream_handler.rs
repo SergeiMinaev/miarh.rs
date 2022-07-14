@@ -7,6 +7,7 @@ use async_native_tls::{TlsStream};
 use futures_lite::{AsyncReadExt, AsyncWriteExt};
 use crate::headers::{parse_headers, HeadersParser};
 use crate::request::Request;
+use crate::mime;
 
 
 pub struct StreamHandler {
@@ -27,7 +28,11 @@ impl StreamHandler {
         hp.check_is_static().await;
         if hp.is_valid() == false { return }
         if hp.is_static {
-            if hp.is_static_valid { self.return_static_test().await; }
+            if hp.is_static_valid {
+                self.return_static(
+                    hp.parsed_headers.get("static_path").unwrap().to_string()
+                ).await;
+            }
             return;
         }
         let req: Request = hp.get_req();
@@ -98,14 +103,17 @@ impl StreamHandler {
         let resp = resp.to_string().into_bytes();
         let _ = self.tls_stream.write_all(&resp).await;
     }
-    pub async fn return_static_test(&mut self) {
-        let mut f = File::open("./bg.jpg").unwrap();
+    pub async fn return_static(&mut self, path: String) {
+        let mut f = File::open(&path).unwrap();
         let mut buf: Vec<u8> = Vec::new();
         let content: Vec<u8>;
         f.read_to_end(&mut buf).unwrap();
         content = buf;
         let content_len = format!("Content-Length: {}\r\n", content.len());
-        let mime_line = "Content-Type: image/jpeg\r\n".to_string();
+        let mime_line = match mime::get_mimetype(&path) {
+            None => String::from(""),
+            Some(m) => format!("Content-Type: {}\r\n", m),
+        };
         let headers = [
             "HTTP/1.1 200 OK\r\n",
             content_len.as_str(),

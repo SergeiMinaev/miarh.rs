@@ -5,6 +5,7 @@ pub mod listener;
 pub mod stream_handler;
 pub mod headers;
 pub mod request;
+pub mod mime;
 
 
 #[cfg(test)]
