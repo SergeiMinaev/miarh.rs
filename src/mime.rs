@@ -49,6 +49,8 @@ pub fn get_mimetype (fname: &String) -> Option<String> {
         "png" => "image/png",
         "svg" => "image/svg+xml",
         "webp" => "image/webp",
+        "avif" => "image/avif",
+        "jxl" => "image/jxl",
         // font
         "otf" => "font/otf",
         "ttf" => "font/ttf",
