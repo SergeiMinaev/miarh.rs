@@ -1,16 +1,17 @@
 use std::net::{Ipv4Addr, IpAddr, SocketAddr};
 use std::str::FromStr;
+use std::sync::{Arc};
 use std::os::unix::io::{AsRawFd};
+use async_lock::Mutex;
 use async_net::{TcpListener, TcpStream};
 use async_native_tls::{Identity, TlsAcceptor};
 use futures_lite::future;
+use qpidfile::Pidfile;
 use crate::conf::CONF;
 use crate::epoll;
 use crate::spawn::spawn;
 use crate::stream_handler::StreamHandler;
 use crate::http_stream_handler::HttpStreamHandler;
-use async_lock::Mutex;
-use std::sync::{Arc};
 
 
 pub struct Listener {
@@ -45,6 +46,10 @@ impl Listener {
         }
     }
     pub async fn main_loop(&mut self) {
+        match Pidfile::new("miarh.pid") {
+            Ok(_pidfile) => {},
+            Err(e) => panic!("Unable to create pidfile: {e}")
+        };
         let https_fd: i32 = self.https_listener.as_raw_fd().clone();
         let http_fd: i32 = self.http_listener.as_raw_fd().clone();
         self.epoll.reg_listeners(https_fd, http_fd).unwrap();
