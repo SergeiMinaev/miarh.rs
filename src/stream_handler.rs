@@ -7,6 +7,7 @@ use async_native_tls::{TlsStream};
 use futures_lite::{AsyncReadExt, AsyncWriteExt};
 use crate::headers::{parse_headers, HeadersParser};
 use crate::request::Request;
+use crate::http;
 use crate::mime;
 
 
@@ -104,7 +105,14 @@ impl StreamHandler {
         let _ = self.tls_stream.write_all(&resp).await;
     }
     pub async fn return_static(&mut self, path: String) {
-        let mut f = File::open(&path).unwrap();
+        let mut f = match File::open(&path) {
+            Ok(f) => f,
+            Err(_) => {
+                println!("File not found: {path}");
+                self.return_404().await;
+                return;
+            },
+        };
         let mut buf: Vec<u8> = Vec::new();
         let content: Vec<u8>;
         f.read_to_end(&mut buf).unwrap();
@@ -123,6 +131,10 @@ impl StreamHandler {
         let mut response = headers.join("").to_string().into_bytes();
         response.extend(content);
         let _ = self.tls_stream.write_all(&response).await;
+    }
+    pub async fn return_404(&mut self) {
+        let r = http::text_resp(404, "Not found".to_string());
+        let _ = self.tls_stream.write_all(&r.get_resp().as_bytes()).await;
     }
 }
 
