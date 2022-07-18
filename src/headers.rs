@@ -110,20 +110,22 @@ pub fn parse_headers(buffer: &Vec<u8>) -> HeadersParser {
 }
 
 pub fn parse_header_line(line: &str, parsed_headers: &mut HashMap<String, String>) {
-    let line = line.to_lowercase();
-    if line.starts_with("get ") {
+    let lowerline = line.to_lowercase();
+    if lowerline.starts_with("get ") {
         parse_method_path_protocol(line, parsed_headers);
-    } else if line.starts_with("host: ") {
-        parse_host(line, parsed_headers);
+    } else if lowerline.starts_with("host: ") {
+        parse_host(lowerline, parsed_headers);
     }
 }
 
-fn parse_method_path_protocol(s: String, r: &mut HashMap<String, String>) {
+fn parse_method_path_protocol(s: &str, r: &mut HashMap<String, String>) {
     let parts: Vec<&str> = s.split(" ").collect();
     if parts.len() != 3 { return };
     let method = parts[0];
+    let method = method.to_lowercase();
     let path = parts[1];
     let protocol = parts[2];
+    let protocol = protocol.to_lowercase();
     if method != "get" {
         println!("Unsupported method: {}", method);
         return;
