@@ -7,7 +7,8 @@ use futures_lite::future;
 use crate::conf::CONF;
 use crate::epoll;
 use crate::spawn::spawn;
-use crate::stream_handler::{StreamHandler};
+use crate::stream_handler::StreamHandler;
+use crate::http_stream_handler::HttpStreamHandler;
 use async_lock::Mutex;
 use std::sync::{Arc};
 
@@ -54,6 +55,8 @@ impl Listener {
                 let ev_id = ev.u64;
                 if ev_id == epoll::EPOLL_HTTPS_LISTENER_ID {
                     self.accept_and_process_https().await;
+                } else if ev_id == epoll::EPOLL_HTTP_LISTENER_ID {
+                    self.accept_and_process_http().await;
                 } else {
                     println!("Unknown event");
                 }
@@ -70,6 +73,14 @@ impl Listener {
             }
         }
     }
+    pub async fn accept_and_process_http(&mut self) {
+        match self.http_listener.accept().await {
+            Err(e) => println!("Unable to accept tcp stream: {e}"),
+            Ok((http_tcp_stream, _addr)) => {
+                spawn(process_http_in_bg(http_tcp_stream)).detach();
+            }
+        }
+    }
 }
 
 async fn process_in_bg(
@@ -83,4 +94,9 @@ async fn process_in_bg(
             handler.process().await;
         }
     }
+}
+
+async fn process_http_in_bg(tcp_stream: TcpStream) {
+    let mut handler = HttpStreamHandler::new(tcp_stream);
+    handler.process().await;
 }
