@@ -46,8 +46,8 @@ impl Listener {
         }
     }
     pub async fn main_loop(&mut self) {
-        match Pidfile::new("miarh.pid") {
-            Ok(_pidfile) => {},
+        let _pidfile = match Pidfile::new("miarh.pid") {
+            Ok(v) => v,
             Err(e) => panic!("Unable to create pidfile: {e}")
         };
         let https_fd: i32 = self.https_listener.as_raw_fd().clone();
