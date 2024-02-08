@@ -1,0 +1,19 @@
+ip = "127.0.0.1"
+https_port = 4430
+http_port = 8000
+acme_challenge_dir = "/work/miarh/acme_challenge/"
+acme_challenge_url = "/.well-known/acme-challenge/"
+index_url = "/"
+admin_url = "/admin"
+tmp_dir = "/tmp"
+
+[[servers]]
+    name = "mysite"
+    hostnames = [
+      "mysite.local",
+      "mysite.com",
+    ]
+    socket_path = "/work/mysite/mysite.sock"
+    static_dir = "/work/mysite/static"
+    index_path = "/work/mysite/index.html"
+    admin_path = "/work/mysite/admin.html"

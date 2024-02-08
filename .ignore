@@ -1,0 +1,7 @@
+migrations
+node_modules
+.git
+CACHE
+venv
+.venv
+target

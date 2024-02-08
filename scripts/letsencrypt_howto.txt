@@ -1,0 +1,12 @@
+# Аккаунт на letsencrypt уже есть, он видит мои домены, поэтому их указывать не нужно
+
+acme-tiny --account-key ./account_private.key --csr ./domain.csr --acme-dir /srv/miarh/acme_challenge/ > ./signed_chain.crt
+
+/srv/miarh/scripts/wrap-pem-to-pfx.sh domain.key signed_chain.crt
+
+cp identity.pfx /srv/miarh/
+cd /srv/miarh
+cargo build --release
+rm /srv/miarh/identity.pfx
+/etc/init.d/miarh restart
+
