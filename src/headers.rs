@@ -95,7 +95,7 @@ impl RequestParser {
     pub async fn _check_is_static(&mut self) {
         let conf = CONF.read().await;
         let path = self.parsed_headers.get("path").unwrap();
-        if path.starts_with("/static/")
+        if path.starts_with("/static/") || path.starts_with("/dev_static/")
                 || path == &conf.index_url
                 || path.starts_with(&conf.acme_challenge_url) {
             self.is_static = true
@@ -107,11 +107,23 @@ impl RequestParser {
         for srv_conf in &conf.servers {
             for host in &srv_conf.hostnames {
                 if host == headers_host {
-                    let static_dir = Path::new(&srv_conf.static_dir);
                     if path.starts_with("/static/") {
+                        let static_dir = Path::new(&srv_conf.static_dir);
                         let path = path.replace("/static/", "");
                         let full_path = static_dir.join(path);
                         if full_path.starts_with(&srv_conf.static_dir) {
+                            self.is_static_valid = true;
+                            self.parsed_headers.insert(
+                                "static_path".to_string(),
+                                full_path.display().to_string()
+                            );
+                            return;
+                        }
+                    } else if path.starts_with("/dev_static/") {
+                        let static_dir = Path::new(&srv_conf.dev_static_dir);
+                        let path = path.replace("/dev_static/", "");
+                        let full_path = static_dir.join(path);
+                        if full_path.starts_with(&srv_conf.dev_static_dir) {
                             self.is_static_valid = true;
                             self.parsed_headers.insert(
                                 "static_path".to_string(),

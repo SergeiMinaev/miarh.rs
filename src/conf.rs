@@ -17,6 +17,7 @@ pub struct ServerConf {
     pub hostnames: Vec<String>,
     pub socket_path: String,
     pub static_dir: String,
+    pub dev_static_dir: String,
     pub index_path: String,
 }
 
