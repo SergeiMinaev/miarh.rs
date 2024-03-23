@@ -11,14 +11,11 @@ use crate::conf::CONF;
 use crate::static_handler;
 
 
-
-pub const MAX_REQUEST_SIZE: usize = 1024*1024*5;
-
-
 pub struct StreamHandler {
 	pub tls_stream: TlsStream<TcpStream>,
 	pub buffer: Vec<u8>,
 }
+
 impl StreamHandler {
 	pub fn new(tls_stream: TlsStream<TcpStream>) -> Self {
 		Self {
@@ -70,6 +67,7 @@ impl StreamHandler {
 		}
 	}
 	pub async fn read(&mut self, is_oneshot: bool, bytes_left: usize) {
+		let conf = CONF.read().await;
 		let required_buffer_len = self.buffer.len() + bytes_left;
 		let mut buf = [0; 1024];
 		let mut is_done = false;
@@ -88,7 +86,7 @@ impl StreamHandler {
 					if is_oneshot || bytes_read == 0 { is_done = true; }
 				}
 			}
-			if self.buffer.len() >= MAX_REQUEST_SIZE {
+			if self.buffer.len() >= conf.max_request_size_mb * 1024 * 1024 {
 				println!("Max request size exceed.");
 				self.return_413_entity_too_large().await;
 				return;

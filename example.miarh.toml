@@ -6,6 +6,7 @@ acme_challenge_url = "/.well-known/acme-challenge/"
 index_url = "/"
 admin_url = "/admin"
 tmp_dir = "/tmp"
+max_request_size_mb = 10
 
 [[servers]]
     name = "mysite"

@@ -31,6 +31,7 @@ pub struct Conf {
     pub index_url: String,
     pub tmp_dir: String,
     pub servers: Vec<ServerConf>,
+	pub max_request_size_mb: usize,
 }
 
 impl Conf {
