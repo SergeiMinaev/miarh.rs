@@ -171,14 +171,14 @@ impl RequestParser {
         }
     }
     pub fn remove_trailing_slash(&mut self) {
-        let mut path = self.parsed_headers.get("path").unwrap().to_string();
+        let mut path = self.parsed_headers.get("path").unwrap_or(&String::new()).to_string();
         if path.ends_with("/") {
             path.pop();
             *self.parsed_headers.get_mut("path").unwrap() = path;
         }
     }
     pub fn parse_query(&mut self) {
-        match self.parsed_headers.get("path").unwrap().split("?").take(2).nth(1) {
+        match self.parsed_headers.get("path").unwrap_or(&String::new()).split("?").take(2).nth(1) {
             None => { return },
             Some(q) => {
                 for kv in q.split("&") {
