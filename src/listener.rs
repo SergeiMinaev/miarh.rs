@@ -49,8 +49,8 @@ impl Listener {
             Ok(v) => v,
             Err(e) => panic!("Unable to create pidfile: {e}")
         };
-        let https_fd: i32 = self.https_listener.as_raw_fd().clone();
-        let http_fd: i32 = self.http_listener.as_raw_fd().clone();
+        let https_fd: i32 = self.https_listener.as_raw_fd();
+        let http_fd: i32 = self.http_listener.as_raw_fd();
         self.epoll.reg_listeners(https_fd, http_fd).unwrap();
         let mut events = epoll::init_events();
         loop {
