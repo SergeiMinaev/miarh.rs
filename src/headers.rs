@@ -171,11 +171,17 @@ impl RequestParser {
         }
     }
     pub fn remove_trailing_slash(&mut self) {
-        let mut path = self.parsed_headers.get("path").unwrap_or(&String::new()).to_string();
-        if path.ends_with("/") {
-            path.pop();
-            *self.parsed_headers.get_mut("path").unwrap() = path;
-        }
+		if let Some(path) = self.parsed_headers.get_mut("path") {
+			if let Some((base, query)) = path.split_once('?') {
+				if base.ends_with('/') {
+					let mut base = base.to_string();
+					base.pop();
+					*path = format!("{}?{}", base, query);
+				}
+			} else if path.ends_with('/') {
+				path.pop();
+			}
+		}
     }
     pub fn parse_query(&mut self) {
         match self.parsed_headers.get("path").unwrap_or(&String::new()).split("?").take(2).nth(1) {
