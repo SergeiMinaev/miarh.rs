@@ -59,8 +59,14 @@ impl Listener {
                 let ev_id = ev.u64;
                 if ev_id == epoll::EPOLL_HTTPS_LISTENER_ID {
                     self.accept_and_process_https().await;
+					let _ = epoll::rearm_interest(
+						self.epoll.epoll_fd, https_fd, epoll::EPOLL_HTTPS_LISTENER_ID
+					).unwrap();
                 } else if ev_id == epoll::EPOLL_HTTP_LISTENER_ID {
                     self.accept_and_process_http().await;
+					epoll::rearm_interest(
+						self.epoll.epoll_fd, http_fd, epoll::EPOLL_HTTP_LISTENER_ID
+					).unwrap();
                 } else {
                     println!("Unknown event");
                 }

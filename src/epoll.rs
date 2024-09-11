@@ -45,29 +45,31 @@ impl Epoll {
         let _ = add_interest(
             self.epoll_fd, https_listener_fd,
             libc::epoll_event {
-                events: READ_FLAG as u32, u64: EPOLL_HTTPS_LISTENER_ID
+                //events: READ_FLAG as u32, u64: EPOLL_HTTPS_LISTENER_ID
+				events: READ_ONESHOT_FLAGS as u32, u64: EPOLL_HTTPS_LISTENER_ID
             }
         )?;
         let _ = add_interest(
             self.epoll_fd, http_listener_fd,
             libc::epoll_event { 
-                events: READ_FLAG as u32, u64: EPOLL_HTTP_LISTENER_ID
+                //events: READ_FLAG as u32, u64: EPOLL_HTTP_LISTENER_ID
+				events: READ_ONESHOT_FLAGS as u32, u64: EPOLL_HTTP_LISTENER_ID
             }
         )?;
         Ok(())
     }
-    pub fn reg_tls_stream(&mut self, stream_fd: i32) -> Result<(), Error> {
-        self.tls_stream_id += 1;
-        self.reg_stream(stream_fd, self.tls_stream_id)?;
-        Ok(())
-    }
-    pub fn reg_stream(&mut self, stream_fd: i32, id: u64) -> Result<(), Error> {
-        add_interest(self.epoll_fd, stream_fd,
-            libc::epoll_event { events: READ_ONESHOT_FLAGS as u32,
-            u64: id}
-        )?;
-        Ok(())
-    }
+    //pub fn reg_tls_stream(&mut self, stream_fd: i32) -> Result<(), Error> {
+    //    self.tls_stream_id += 1;
+    //    self.reg_stream(stream_fd, self.tls_stream_id)?;
+    //    Ok(())
+    //}
+    //pub fn reg_stream(&mut self, stream_fd: i32, id: u64) -> Result<(), Error> {
+    //    add_interest(self.epoll_fd, stream_fd,
+    //        libc::epoll_event { events: READ_ONESHOT_FLAGS as u32,
+    //        u64: id}
+    //    )?;
+    //    Ok(())
+    //}
     pub fn wait(&self, events: &mut Vec<libc::epoll_event>) -> Result<(), Error> {
         events.clear();
         let count = syscall!(epoll_wait(

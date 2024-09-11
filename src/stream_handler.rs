@@ -125,7 +125,7 @@ impl StreamHandler {
 							Err(e) => println!("Err reading unixstream: {e}"),
 							Ok(bytes_read) => {
 								if bytes_read == 0 { break; }
-								resp.extend_from_slice(&buf);
+								resp.extend_from_slice(&buf[..bytes_read]);
 							}
 						}
 					}
