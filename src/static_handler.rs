@@ -45,6 +45,7 @@ pub async fn get_static_file(hp: RequestParser) -> Option<Vec<u8>> {
 		content_len.as_str(),
 		content_encoding,
 		mime_line.as_str(),
+		"Cache-Control: public, max-age=2592000\r\n", // 1 month
 		"\r\n"
 	];
 	let mut response = headers.join("").to_string().into_bytes();
