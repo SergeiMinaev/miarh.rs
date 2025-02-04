@@ -141,6 +141,8 @@ impl StreamHandler {
 
 	pub async fn write_resp(&mut self, resp: Vec<u8>) {
 		let _ = self.tls_stream.write_all(&resp).await;
+		// Без этого при больших ответах иногда бывает NS_ERROR_NET_PARTIAL_TRANSFER (в браузере).
+		let _ = self.tls_stream.flush().await;
 	}
 
 	pub async fn return_html_test(&mut self) {
