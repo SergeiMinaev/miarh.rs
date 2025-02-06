@@ -119,7 +119,8 @@ impl StreamHandler {
 					let _ = unixstream.flush().await;
 					let _ = unixstream.close().await;
 					let mut resp: Vec<u8> = vec![];
-					let mut buf = [0; 1024*32];
+					// let mut buf = [0; 1024*32];
+					let mut buf = vec![0; 1024 * 32].into_boxed_slice();
 					loop {
 						match unixstream.read(&mut buf).await {
 							Err(e) => println!("Err reading unixstream: {e}"),
