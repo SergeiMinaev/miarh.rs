@@ -236,26 +236,33 @@ pub fn parse_headers(buffer: &Vec<u8>) -> RequestParser {
     }
     return hp
 }
-
-pub fn parse_header_line(line: &str, parsed_headers: &mut HashMap<String, String>) {
-    let lowerline = line.to_lowercase();
-    if lowerline.starts_with("get ")
-            || lowerline.starts_with("post ") 
-            || lowerline.starts_with("delete ") 
-            || lowerline.starts_with("put ") {
-        parse_method_path_protocol(line, parsed_headers);
-    } else if lowerline.starts_with("host: ") {
-        parse_host(lowerline, parsed_headers);
-    } else if lowerline.starts_with("content-length: ") {
-        parse_content_len(lowerline, parsed_headers);
-    } else if lowerline.starts_with("content-type: ") {
-        parse_content_type(lowerline, parsed_headers);
-    } else if lowerline.starts_with("accept-encoding: ") {
-        parse_accept_encoding(lowerline, parsed_headers);
-    } else if lowerline.starts_with("cookie: ") {
-        parse_cookies(&lowerline, parsed_headers);
-    } else if lowerline.starts_with("connection: ") {
-        parse_connection(&lowerline, parsed_headers);
+fn parse_header_line(line: &str, parsed_headers: &mut HashMap<String, String>) {
+    if line.len() >= 4 {
+        if line.get(0..4).map_or(false, |s| s.eq_ignore_ascii_case("get ")) ||
+           line.get(0..5).map_or(false, |s| s.eq_ignore_ascii_case("post ")) ||
+           line.get(0..7).map_or(false, |s| s.eq_ignore_ascii_case("delete ")) ||
+           line.get(0..4).map_or(false, |s| s.eq_ignore_ascii_case("put ")) {
+            parse_method_path_protocol(line, parsed_headers);
+            return;
+        }
+    }
+    if line.len() >= 6 && line.get(0..6).map_or(false, |s| s.eq_ignore_ascii_case("host: ")) {
+        parse_host(line, parsed_headers);
+    } else if line.len() >= 16 && line.get(0..16)
+			.map_or(false, |s| s.eq_ignore_ascii_case("content-length: ")) {
+        parse_content_len(line, parsed_headers);
+    } else if line.len() >= 14 && line.get(0..14)
+			.map_or(false, |s| s.eq_ignore_ascii_case("content-type: ")) {
+        parse_content_type(line, parsed_headers);
+    } else if line.len() >= 18 && line.get(0..18)
+			.map_or(false, |s| s.eq_ignore_ascii_case("accept-encoding: ")) {
+        parse_accept_encoding(line, parsed_headers);
+    } else if line.len() >= 8 && line.get(0..8)
+			.map_or(false, |s| s.eq_ignore_ascii_case("cookie: ")) {
+        parse_cookies(line, parsed_headers);
+    } else if line.len() >= 12 && line.get(0..12)
+			.map_or(false, |s| s.eq_ignore_ascii_case("connection: ")) {
+        parse_connection(line, parsed_headers);
     }
 }
 
@@ -280,7 +287,7 @@ fn parse_method_path_protocol(s: &str, r: &mut HashMap<String, String>) {
     r.insert("protocol".to_string(), protocol.to_string());
 }
 
-fn parse_host(s: String, r: &mut HashMap<String, String>) {
+fn parse_host(s: &str, r: &mut HashMap<String, String>) {
     let parts: Vec<&str> = s.split("host: ").collect();
     if parts.len() != 2 && parts.len() != 1 {
         println!("Invalid 'host' line in headers.");
@@ -290,7 +297,7 @@ fn parse_host(s: String, r: &mut HashMap<String, String>) {
     let host = host_port[0].to_lowercase();
     r.insert("host".to_string(), host.to_string());
 }
-fn parse_content_len(s: String, r: &mut HashMap<String, String>) {
+fn parse_content_len(s: &str, r: &mut HashMap<String, String>) {
     let parts: Vec<&str> = s.split(" ").collect();
     if parts.len() != 2 {
         println!("Invalid 'content-length' header.");
@@ -299,7 +306,7 @@ fn parse_content_len(s: String, r: &mut HashMap<String, String>) {
     let len = parts[1];
     r.insert("content-length".to_string(), len.to_string());
 }
-fn parse_accept_encoding(s: String, r: &mut HashMap<String, String>) {
+fn parse_accept_encoding(s: &str, r: &mut HashMap<String, String>) {
     let parts: Vec<&str> = s.split("accept-encoding: ").collect();
     if parts.len() != 2 {
         println!("Invalid 'accept-encoding' header.");
@@ -323,7 +330,7 @@ fn parse_cookies(s: &str, r: &mut HashMap<String, String>) {
         }
     }
 }
-fn parse_content_type(s: String, r: &mut HashMap<String, String>) {
+fn parse_content_type(s: &str, r: &mut HashMap<String, String>) {
     let parts: Vec<&str> = s.split("content-type: ").collect();
     let v = parts[1];
     r.insert("content-type".to_string(), v.to_string());
