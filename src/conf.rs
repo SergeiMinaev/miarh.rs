@@ -32,6 +32,7 @@ pub struct Conf {
     pub tmp_dir: String,
     pub servers: Vec<ServerConf>,
 	pub max_request_size_mb: usize,
+	pub keep_alive_timeout_sec: u64,
 }
 
 impl Conf {

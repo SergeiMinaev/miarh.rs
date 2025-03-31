@@ -16,6 +16,7 @@ pub struct RequestParser {
     pub is_static: bool,
     pub is_static_valid: bool,
     pub is_multipart: bool,
+	pub is_keep_alive: bool,
     pub headers_len: usize,
     pub body: Vec<u8>,
     pub body_string: String,
@@ -30,6 +31,7 @@ impl RequestParser {
             is_static: false,
             is_static_valid: false,
             is_multipart: false,
+			is_keep_alive: false,
             headers_len: 0,
             body: vec![],
             body_string: String::new(),
@@ -82,6 +84,11 @@ impl RequestParser {
         self.is_multipart = self.parsed_headers.contains_key("content-type")
             && self.parsed_headers.get("content-type").unwrap()
             .contains("multipart/form-data");
+    }
+    pub async fn check_is_keep_alive(&mut self) {
+        self.is_keep_alive = self.parsed_headers.contains_key("connection")
+            && self.parsed_headers.get("connection").unwrap()
+            .contains("keep-alive");
     }
     pub async fn check_is_static(&mut self) {
         if self.parsed_headers.contains_key("host")
@@ -247,6 +254,8 @@ pub fn parse_header_line(line: &str, parsed_headers: &mut HashMap<String, String
         parse_accept_encoding(lowerline, parsed_headers);
     } else if lowerline.starts_with("cookie: ") {
         parse_cookies(&lowerline, parsed_headers);
+    } else if lowerline.starts_with("connection: ") {
+        parse_connection(&lowerline, parsed_headers);
     }
 }
 
@@ -318,4 +327,9 @@ fn parse_content_type(s: String, r: &mut HashMap<String, String>) {
     let parts: Vec<&str> = s.split("content-type: ").collect();
     let v = parts[1];
     r.insert("content-type".to_string(), v.to_string());
+}
+fn parse_connection(s: &str, r: &mut HashMap<String, String>) {
+    let parts: Vec<&str> = s.split("connection: ").collect();
+    let v = parts[1];
+    r.insert("connection".to_string(), v.to_string());
 }

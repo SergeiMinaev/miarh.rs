@@ -645,6 +645,7 @@ name = "miarh"
 version = "0.1.0"
 dependencies = [
  "async-executor",
+ "async-io",
  "async-lock",
  "async-native-tls",
  "async-net",
