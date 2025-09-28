@@ -90,6 +90,13 @@ impl RequestParser {
             && self.parsed_headers.get("connection").unwrap()
             .contains("keep-alive");
     }
+    pub fn is_websocket_upgrade(&self) -> bool {
+        let has_conn = self.parsed_headers.get("connection")
+            .map(|v| v.to_lowercase().contains("upgrade")).unwrap_or(false);
+        let is_upg = self.parsed_headers.get("upgrade")
+            .map(|v| v.to_lowercase().contains("websocket")).unwrap_or(false);
+        has_conn && is_upg
+    }
     pub async fn check_is_static(&mut self) {
         if self.parsed_headers.contains_key("host")
                 && self.parsed_headers.contains_key("path") {
@@ -254,6 +261,10 @@ pub fn parse_header_line(line: &str, parsed_headers: &mut HashMap<String, String
         parse_accept_encoding(&lowerline, parsed_headers);
     } else if lowerline.starts_with("cookie: ") {
         parse_cookies(&lowerline, parsed_headers);
+    } else if lowerline.starts_with("upgrade: ") {
+        parse_upgrade(&lowerline, parsed_headers);
+    } else if lowerline.starts_with("sec-websocket-key: ") {
+        parse_sec_ws_key(&lowerline, parsed_headers);
     } else if lowerline.starts_with("connection: ") {
         parse_connection(&lowerline, parsed_headers);
     }
@@ -332,4 +343,16 @@ fn parse_connection(s: &str, r: &mut HashMap<String, String>) {
     let parts: Vec<&str> = s.split("connection: ").collect();
     let v = parts[1];
     r.insert("connection".to_string(), v.to_string());
+}
+fn parse_upgrade(s: &str, r: &mut HashMap<String, String>) {
+    let parts: Vec<&str> = s.split("upgrade: ").collect();
+    if parts.len() == 2 {
+        r.insert("upgrade".to_string(), parts[1].to_string());
+    }
+}
+fn parse_sec_ws_key(s: &str, r: &mut HashMap<String, String>) {
+    let parts: Vec<&str> = s.split("sec-websocket-key: ").collect();
+    if parts.len() == 2 {
+        r.insert("sec-websocket-key".to_string(), parts[1].to_string());
+    }
 }

@@ -18,3 +18,4 @@ max_request_size_mb = 10
     static_dir = "/work/mysite/static"
     index_path = "/work/mysite/index.html"
     admin_path = "/work/mysite/admin.html"
+    ws_backend = "unix:/work/mysite/ws.sock"

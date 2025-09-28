@@ -19,6 +19,7 @@ pub struct ServerConf {
     pub static_dir: String,
     pub dev_static_dir: String,
     pub index_path: String,
+    pub ws_backend: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

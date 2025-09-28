@@ -653,6 +653,7 @@ dependencies = [
  "brotli",
  "cookie",
  "futures-lite",
+ "futures-util",
  "libc",
  "memchr",
  "miarh-saras-http",
