@@ -16,12 +16,13 @@ pub struct RequestParser {
     pub is_static: bool,
     pub is_static_valid: bool,
     pub is_multipart: bool,
-	pub is_keep_alive: bool,
+    pub is_keep_alive: bool,
     pub headers_len: usize,
     pub body: Vec<u8>,
     pub body_string: String,
     pub route: HashMap<String, String>,
     pub files: HashMap<String, RequestFile>,
+    pub filtered_headers: HashMap<String, String>,
 }
 impl RequestParser {
     fn new() -> Self {
@@ -37,6 +38,7 @@ impl RequestParser {
             body_string: String::new(),
             route: HashMap::new(),
             files: HashMap::new(),
+            filtered_headers: HashMap::new(),
         }
     }
     pub fn get_req(&mut self) -> Request {
@@ -51,6 +53,7 @@ impl RequestParser {
             body_string: self.body_string.clone(),
             route: self.route.clone(),
             files: self.files.clone(),
+            headers: self.filtered_headers.clone(),
         }
     }
     pub fn get_header(&self, name: &str) -> String {
@@ -224,7 +227,7 @@ pub fn parse_headers(buffer: &Vec<u8>) -> RequestParser {
         if buffer[i] == b'\r' && buffer[i+1] == b'\n' {
             match std::str::from_utf8(&buffer[start..i]) {
                 Ok(_line) => {
-                    parse_header_line(_line, &mut hp.parsed_headers);
+                    parse_header_line(_line, &mut hp.parsed_headers, &mut hp.filtered_headers);
                 },
                 Err(_e) => {
                     println!("Bad utf-8 sequence.");
@@ -244,7 +247,7 @@ pub fn parse_headers(buffer: &Vec<u8>) -> RequestParser {
     return hp
 }
 
-pub fn parse_header_line(line: &str, parsed_headers: &mut HashMap<String, String>) {
+pub fn parse_header_line(line: &str, parsed_headers: &mut HashMap<String, String>, filtered_headers: &mut HashMap<String, String>) {
     let lowerline = line.to_lowercase();
     if lowerline.starts_with("get ")
             || lowerline.starts_with("post ")
@@ -267,6 +270,8 @@ pub fn parse_header_line(line: &str, parsed_headers: &mut HashMap<String, String
         parse_sec_ws_key(&lowerline, parsed_headers);
     } else if lowerline.starts_with("connection: ") {
         parse_connection(&lowerline, parsed_headers);
+    } else {
+        parse_whitelisted_header(&lowerline, line, filtered_headers);
     }
 }
 
@@ -354,5 +359,18 @@ fn parse_sec_ws_key(s: &str, r: &mut HashMap<String, String>) {
     let parts: Vec<&str> = s.split("sec-websocket-key: ").collect();
     if parts.len() == 2 {
         r.insert("sec-websocket-key".to_string(), parts[1].to_string());
+    }
+}
+
+fn parse_whitelisted_header(lower: &str, original: &str, filtered: &mut HashMap<String, String>) {
+    // Whitelist of headers we want to preserve (case-insensitive).
+    const WHITELIST: [&str; 2] = ["x-tracker-upload-token", "x-device-id"];
+    for key in WHITELIST {
+        if lower.starts_with(&(key.to_string() + ": ")) {
+            if let Some((_, value)) = original.split_once(':') {
+                filtered.insert(key.to_string(), value.trim().to_string());
+            }
+            break;
+        }
     }
 }
