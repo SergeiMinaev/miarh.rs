@@ -4,20 +4,27 @@ use async_net::{TcpStream};
 use futures_lite::{AsyncReadExt, AsyncWriteExt};
 use crate::headers::{parse_headers, RequestParser};
 use crate::conf::CONF;
+use crate::logging::format_timestamp;
 use crate::http;
 
 
 pub struct HttpStreamHandler {
     pub tcp_stream: TcpStream,
     pub buffer: Vec<u8>,
+    pub peer_addr: Option<String>,
 }
 
 impl HttpStreamHandler {
     pub fn new(tcp_stream: TcpStream
     ) -> Self {
+        let peer_addr = tcp_stream
+            .peer_addr()
+            .ok()
+            .map(|addr| addr.ip().to_string());
         Self {
             tcp_stream: tcp_stream,
             buffer: Vec::<u8>::new(),
+            peer_addr,
         }
     }
     pub async fn process(&mut self) {
@@ -29,7 +36,8 @@ impl HttpStreamHandler {
             conf.log_requests
         };
         if log_requests {
-            println!("HTTP {}", hp.log_line());
+            let ip = self.peer_addr.as_deref().unwrap_or("-");
+            println!("{} {} HTTP {}", format_timestamp(), ip, hp.log_line());
         }
         hp.check_is_static().await;
         if hp.is_valid() == false { return }
@@ -113,4 +121,3 @@ impl HttpStreamHandler {
         let _ = self.tcp_stream.write_all(&r.get_resp().as_bytes()).await;
     }
 }
-

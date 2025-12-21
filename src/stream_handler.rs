@@ -8,6 +8,7 @@ use futures_lite::future::race;
 use async_io::Timer;
 use futures_lite::io::{split, copy};
 use crate::headers::{parse_headers, RequestParser};
+use crate::logging::format_timestamp;
 use miarh_saras_http::Request;
 use crate::http;
 use crate::multipart::parse_multipart;
@@ -18,13 +19,20 @@ use crate::static_handler;
 pub struct StreamHandler {
 	pub tls_stream: Option<TlsStream<TcpStream>>,
 	pub buffer: Vec<u8>,
+	pub peer_addr: Option<String>,
 }
 
 impl StreamHandler {
 	pub fn new(tls_stream: TlsStream<TcpStream>) -> Self {
+		let peer_addr = tls_stream
+			.get_ref()
+			.peer_addr()
+			.ok()
+			.map(|addr| addr.ip().to_string());
 		Self {
 			tls_stream: Some(tls_stream),
 			buffer: Vec::<u8>::new(),
+			peer_addr,
 		}
 	}
     pub async fn process(&mut self) {
@@ -43,7 +51,8 @@ impl StreamHandler {
 
             let mut hp: RequestParser = parse_headers(&self.buffer);
             if log_requests {
-                println!("HTTPS {}", hp.log_line());
+				let ip = self.peer_addr.as_deref().unwrap_or("-");
+                println!("{} {} HTTPS {}", format_timestamp(), ip, hp.log_line());
             }
             hp.check_is_static().await;
             hp.check_is_multipart().await;

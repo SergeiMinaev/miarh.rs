@@ -7,6 +7,7 @@ pub mod headers;
 pub mod http;
 pub mod http_stream_handler;
 pub mod listener;
+pub mod logging;
 pub mod multipart;
 pub mod mime;
 pub mod spawn;
