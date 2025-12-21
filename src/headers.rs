@@ -63,6 +63,12 @@ impl RequestParser {
             None => "".to_string(),
         }
     }
+    pub fn log_line(&self) -> String {
+        let method = self.parsed_headers.get("method").map(|v| v.as_str()).unwrap_or("-");
+        let host = self.parsed_headers.get("host").map(|v| v.as_str()).unwrap_or("-");
+        let path = self.parsed_headers.get("path").map(|v| v.as_str()).unwrap_or("-");
+        format!("{method} {host}{path}")
+    }
     pub fn is_valid(&self) -> bool {
         let h = &self.parsed_headers;
         if h.contains_key("method")

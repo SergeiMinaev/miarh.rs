@@ -3,6 +3,7 @@ use std::fs::File;
 use async_net::{TcpStream};
 use futures_lite::{AsyncReadExt, AsyncWriteExt};
 use crate::headers::{parse_headers, RequestParser};
+use crate::conf::CONF;
 use crate::http;
 
 
@@ -23,6 +24,13 @@ impl HttpStreamHandler {
         // the only purpose is to redirect all to https
         self.read_headers().await;
         let mut hp: RequestParser = parse_headers(&self.buffer);
+        let log_requests = {
+            let conf = CONF.read().await;
+            conf.log_requests
+        };
+        if log_requests {
+            println!("HTTP {}", hp.log_line());
+        }
         hp.check_is_static().await;
         if hp.is_valid() == false { return }
         let host = hp.parsed_headers.get("host").unwrap();
@@ -105,5 +113,4 @@ impl HttpStreamHandler {
         let _ = self.tcp_stream.write_all(&r.get_resp().as_bytes()).await;
     }
 }
-
 

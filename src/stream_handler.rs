@@ -29,6 +29,7 @@ impl StreamHandler {
 	}
     pub async fn process(&mut self) {
         let conf = CONF.read().await;
+        let log_requests = conf.log_requests;
         loop {
             self.buffer.clear();
 			let timeout = Timer::after(Duration::from_secs(conf.keep_alive_timeout_sec));
@@ -41,6 +42,9 @@ impl StreamHandler {
 			}
 
             let mut hp: RequestParser = parse_headers(&self.buffer);
+            if log_requests {
+                println!("HTTPS {}", hp.log_line());
+            }
             hp.check_is_static().await;
             hp.check_is_multipart().await;
             hp.check_is_keep_alive().await;

@@ -12,10 +12,12 @@ session_name: miarh
 start_directory: $MIARH_HOME
 windows:
 
-- window_name: srv
+- window_name: manage
+
+- window_name: ai
   panes:
   - shell_command:
-    - cargo-watch -x run
+    - ./codex.sh
 
 - window_name: code
   focus: true
@@ -25,3 +27,8 @@ windows:
       - :SLoad miarh
 
 - window_name: manage
+
+- window_name: srv
+  panes:
+  - shell_command:
+    - cargo-watch -x run

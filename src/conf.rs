@@ -34,6 +34,8 @@ pub struct Conf {
     pub servers: Vec<ServerConf>,
 	pub max_request_size_mb: usize,
 	pub keep_alive_timeout_sec: u64,
+    #[serde(default)]
+    pub log_requests: bool,
 }
 
 impl Conf {
