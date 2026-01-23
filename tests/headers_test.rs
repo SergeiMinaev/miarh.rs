@@ -21,3 +21,10 @@ fn reject_if_bad_utf8() {
     let r = parse_headers(&invalid);
     assert_eq!(false, r.is_valid());
 }
+
+#[test]
+fn accept_head_method() {
+    let buf = "HEAD /static/main/app.js HTTP/1.1\r\nHost: example.com\r\n\r\n";
+    let r = parse_headers(&buf.as_bytes().to_vec());
+    assert_eq!(true, r.is_valid());
+}

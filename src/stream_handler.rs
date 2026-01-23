@@ -76,9 +76,22 @@ impl StreamHandler {
             }
 
 			let keep_alive = hp.is_keep_alive;
+		let is_head = hp.method() == "head";
             if hp.is_static {
                 if hp.is_static_valid {
-                    self.return_static(hp).await;
+                    if let Some(resp) = static_handler::get_static_file(hp).await {
+                        if is_head {
+                            self.write_resp_head(resp).await;
+                        } else {
+                            let _ = self.tls_stream.as_mut().unwrap().write_all(&resp).await;
+                        }
+                    } else {
+                        if is_head {
+                            self.return_404_head().await;
+                        } else {
+                            self.return_404().await;
+                        }
+                    }
                 }
                 if !keep_alive { break; }
                 continue;
@@ -90,8 +103,19 @@ impl StreamHandler {
             
             let req: Request = hp.get_req();
             match self.get_resp(req).await {
-                Err(e) => println!("{e}"),
-                Ok(resp) => self.write_resp(resp).await,
+                Err(e) => {
+                    println!("{e}");
+                    if is_head {
+                        self.return_404_head().await;
+                    }
+                }
+                Ok(resp) => {
+                    if is_head {
+                        self.write_resp_head(resp).await;
+                    } else {
+                        self.write_resp(resp).await;
+                    }
+                }
             }
             
             if !keep_alive { break; }
@@ -295,6 +319,17 @@ impl StreamHandler {
 		let _ = self.tls_stream.as_mut().unwrap().flush().await;
 	}
 
+	pub async fn write_resp_head(&mut self, resp: Vec<u8>) {
+		let resp = strip_body(resp);
+		let _ = self.tls_stream.as_mut().unwrap().write_all(&resp).await;
+	}
+
+	pub async fn return_404_head(&mut self) {
+		let r = http::text_resp(404, "Not found".to_string());
+		let resp = strip_body(r.get_resp().into_bytes());
+		let _ = self.tls_stream.as_mut().unwrap().write_all(&resp).await;
+	}
+
 	pub async fn return_html_test(&mut self) {
 		let resp = "HTTP/1.1 200 OK\r\n\
 			Content-Length: 12\r\n\
@@ -319,4 +354,11 @@ impl StreamHandler {
 		let r = http::text_resp(413, "Request entity too large.".to_string());
 		let _ = self.tls_stream.as_mut().unwrap().write_all(&r.get_resp().as_bytes()).await;
 	}
+}
+
+fn strip_body(mut resp: Vec<u8>) -> Vec<u8> {
+	if let Some(pos) = resp.windows(4).position(|w| w == b"\r\n\r\n") {
+		resp.truncate(pos + 4);
+	}
+	resp
 }

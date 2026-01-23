@@ -75,6 +75,7 @@ impl RequestParser {
             && h.contains_key("host")
             && h.contains_key("path")
             && (h.get("method").unwrap() == "get"
+                || h.get("method").unwrap() == "head"
                 || h.get("method").unwrap() == "post"
                 || h.get("method").unwrap() == "put"
                 || h.get("method").unwrap() == "delete")
@@ -256,6 +257,7 @@ pub fn parse_headers(buffer: &Vec<u8>) -> RequestParser {
 pub fn parse_header_line(line: &str, parsed_headers: &mut HashMap<String, String>, filtered_headers: &mut HashMap<String, String>) {
     let lowerline = line.to_lowercase();
     if lowerline.starts_with("get ")
+            || lowerline.starts_with("head ")
             || lowerline.starts_with("post ")
             || lowerline.starts_with("delete ")
             || lowerline.starts_with("put ") {
@@ -289,7 +291,8 @@ fn parse_method_path_protocol(s: &str, r: &mut HashMap<String, String>) {
     let path = parts[1];
     let protocol = parts[2];
     let protocol = protocol.to_lowercase();
-    if method != "get" && method != "post" && method != "put" && method != "delete" {
+    if method != "get" && method != "head" && method != "post"
+        && method != "put" && method != "delete" {
         println!("Unsupported method: {}", method);
         return;
     }
