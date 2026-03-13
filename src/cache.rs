@@ -29,23 +29,23 @@ impl Cache {
 			let cf = self.files.get(path).unwrap();
 			if cf.is_outdated() {
 				self.remove(path);
-				let cf = self.set(path).await;
+				let cf = self.set(path).await?;
 				return Some(cf.content)
 			} else {
 				return Some(cf.content.clone())
 			}
 		} else {
 			self.check_size();
-			let cf = self.set(path).await;
+			let cf = self.set(path).await?;
 			return Some(cf.content)
 		}
 	}
-	pub async fn set(&mut self, path: &String) -> CachedFile {
-		let cf = CachedFile::new(path);
+	pub async fn set(&mut self, path: &String) -> Option<CachedFile> {
+		let cf = CachedFile::new(path)?;
 		self.size += &cf.content.len();
 		match self.files.insert(path.to_string(), cf) {
-			Some(v) => v,
-			None => self.files.get(path).unwrap().clone()
+			Some(v) => Some(v),
+			None => self.files.get(path).cloned()
 		}
 	}
 	pub fn remove(&mut self, path: &String) {
@@ -78,19 +78,24 @@ pub struct CachedFile {
 }
 
 impl CachedFile {
-	pub fn new(path: &String) -> Self {
-		let mut f = fs::File::open(path).unwrap();
+	pub fn new(path: &String) -> Option<Self> {
+		let mut f = match fs::File::open(path) {
+			Ok(f) => f,
+			Err(_) => return None,
+		};
 		let mut buf: Vec<u8> = Vec::new();
-		f.read_to_end(&mut buf).unwrap();
+		if f.read_to_end(&mut buf).is_err() {
+			return None;
+		}
 		buf = compress::compress(&buf);
 
-		let mod_dt = f.metadata().unwrap().modified().unwrap();
-		CachedFile {
+		let mod_dt = f.metadata().ok()?.modified().ok()?;
+		Some(CachedFile {
 			path: path.to_string(),
 			content: buf,
 			mod_dt: mod_dt,
 			hits: 1,
-		}
+		})
 	}
 	pub fn hit(&mut self) {
 		self.hits += 1;
