@@ -84,6 +84,8 @@ impl StreamHandler {
             hp.check_is_multipart().await;
             hp.check_is_keep_alive().await;
             hp.parse_query();
+			let keep_alive = hp.is_keep_alive;
+			let is_head = hp.get_header("method") == "head";
             if hp.is_websocket_upgrade() {
                 //println!("WS upgrade detected: host='{}' path='{}' headers_len={}", hp.get_header("host"), hp.get_header("path"), hp.headers_len);
                 if let Some(ws_socket) = self.app_ws_socket_path(&hp.get_header("host")).await {
@@ -97,6 +99,15 @@ impl StreamHandler {
                     break;
                 }
             }
+            if hp.is_static && !hp.is_static_valid {
+				if is_head {
+					self.return_404_head().await;
+				} else {
+					self.return_404().await;
+				}
+				if !keep_alive { break; }
+				continue;
+            }
             if !hp.is_valid() {
 				if debug_https_reads {
 					self.debug_log("closing connection because request is invalid");
@@ -104,8 +115,6 @@ impl StreamHandler {
                 break;
             }
 
-			let keep_alive = hp.is_keep_alive;
-		let is_head = hp.method() == "head";
             if hp.is_static {
                 if hp.is_static_valid {
                     if let Some(resp) = static_handler::get_static_file(hp).await {
