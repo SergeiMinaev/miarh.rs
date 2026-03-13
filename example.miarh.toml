@@ -8,6 +8,7 @@ admin_url = "/admin"
 tmp_dir = "/tmp"
 max_request_size_mb = 10
 log_requests = false
+debug_https_reads = false
 
 [[servers]]
     name = "mysite"

@@ -36,6 +36,8 @@ pub struct Conf {
 	pub keep_alive_timeout_sec: u64,
     #[serde(default)]
     pub log_requests: bool,
+    #[serde(default)]
+    pub debug_https_reads: bool,
 }
 
 impl Conf {

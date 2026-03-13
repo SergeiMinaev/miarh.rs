@@ -35,14 +35,28 @@ impl StreamHandler {
 			peer_addr,
 		}
 	}
+	fn headers_complete(&self) -> bool {
+		self.buffer.windows(4).any(|w| w == b"\r\n\r\n")
+	}
+	fn debug_preview(&self) -> String {
+		let preview_len = self.buffer.len().min(160);
+		String::from_utf8_lossy(&self.buffer[..preview_len])
+			.replace('\r', "\\r")
+			.replace('\n', "\\n")
+	}
+	fn debug_log(&self, message: &str) {
+		let ip = self.peer_addr.as_deref().unwrap_or("-");
+		println!("HTTPS debug {} {}", ip, message);
+	}
     pub async fn process(&mut self) {
         let conf = CONF.read().await;
         let log_requests = conf.log_requests;
+        let debug_https_reads = conf.debug_https_reads;
         loop {
             self.buffer.clear();
 			let timeout = Timer::after(Duration::from_secs(conf.keep_alive_timeout_sec));
 			if race(
-				self.read_headers(),
+				self.read_headers(debug_https_reads),
 				async { timeout.await; Err(()) }
 			).await.is_err() {
 				//println!("Keep-Alive timeout reached, closing connection");
@@ -50,6 +64,18 @@ impl StreamHandler {
 			}
 
             let mut hp: RequestParser = parse_headers(&self.buffer);
+            if debug_https_reads {
+				self.debug_log(&format!(
+					"after_parse bytes={} headers_complete={} method={} host={} path={} valid={} preview=\"{}\"",
+					self.buffer.len(),
+					self.headers_complete(),
+					hp.get_header("method"),
+					hp.get_header("host"),
+					hp.get_header("path"),
+					hp.is_valid(),
+					self.debug_preview(),
+				));
+			}
             if log_requests {
 				let ip = self.peer_addr.as_deref().unwrap_or("-");
                 println!("{} {} HTTPS {}", format_timestamp(), ip, hp.log_line());
@@ -72,6 +98,9 @@ impl StreamHandler {
                 }
             }
             if !hp.is_valid() {
+				if debug_https_reads {
+					self.debug_log("closing connection because request is invalid");
+				}
                 break;
             }
 
@@ -121,9 +150,9 @@ impl StreamHandler {
             if !keep_alive { break; }
         }
     }
-	async fn read_headers(&mut self) -> Result<(), ()> {
+	async fn read_headers(&mut self, debug_https_reads: bool) -> Result<(), ()> {
         let is_oneshot = true;
-        self.read(is_oneshot, 0).await;
+        self.read(is_oneshot, 0, debug_https_reads).await;
         Ok(())
     }
 	pub async fn read_post_body(&mut self, hp: &mut RequestParser) {
@@ -132,7 +161,7 @@ impl StreamHandler {
 		if self.buffer.len() < body_end {
 			let is_oneshot = false;
 			let bytes_left = body_end - self.buffer.len();
-			self.read(is_oneshot, bytes_left).await;
+			self.read(is_oneshot, bytes_left, false).await;
 		}
 
 		hp.body = self.buffer[hp.headers_len+1..].to_vec();
@@ -143,23 +172,64 @@ impl StreamHandler {
 		  hp.body_string = String::from_utf8(hp.body[..].to_vec()).unwrap();
 		}
 	}
-    pub async fn read(&mut self, is_oneshot: bool, bytes_left: usize) {
+    pub async fn read(&mut self, is_oneshot: bool, bytes_left: usize, debug_https_reads: bool) {
         let conf = CONF.read().await;
         let required_buffer_len = self.buffer.len() + bytes_left;
         let mut buf = [0; 1024];
         let mut is_done = false;
+        let mut read_iter = 0;
         while !is_done {
+            read_iter += 1;
             match self.tls_stream.as_mut().unwrap().read(&mut buf).await {
                 Err(e) if e.kind() == ErrorKind::WouldBlock => {
                     println!("Stream read err: {e}");
+                    if debug_https_reads {
+						self.debug_log(&format!(
+							"read_iter={} would_block bytes={} headers_complete={}",
+							read_iter,
+							self.buffer.len(),
+							self.headers_complete(),
+						));
+					}
                 }
                 Err(e) => {
                     println!("Stream read err: {e}");
+                    if debug_https_reads {
+						self.debug_log(&format!(
+							"read_iter={} err=\"{}\" bytes={} headers_complete={} preview=\"{}\"",
+							read_iter,
+							e,
+							self.buffer.len(),
+							self.headers_complete(),
+							self.debug_preview(),
+						));
+					}
                     return;
                 }
                 Ok(bytes_read) => {
-                    if bytes_read == 0 { break; }
+                    if bytes_read == 0 {
+						if debug_https_reads {
+							self.debug_log(&format!(
+								"read_iter={} eof bytes={} headers_complete={} preview=\"{}\"",
+								read_iter,
+								self.buffer.len(),
+								self.headers_complete(),
+								self.debug_preview(),
+							));
+						}
+						break;
+					}
                     self.buffer.extend_from_slice(&buf[..bytes_read]);
+                    if debug_https_reads {
+						self.debug_log(&format!(
+							"read_iter={} read={} total={} headers_complete={} preview=\"{}\"",
+							read_iter,
+							bytes_read,
+							self.buffer.len(),
+							self.headers_complete(),
+							self.debug_preview(),
+						));
+					}
                     if is_oneshot || self.buffer.len() == required_buffer_len {
                         is_done = true;
                     }
