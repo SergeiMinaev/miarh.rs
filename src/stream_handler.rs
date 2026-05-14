@@ -139,6 +139,9 @@ impl StreamHandler {
                 self.read_post_body(&mut hp).await;
             }
             
+            if let Some(ip) = &self.peer_addr {
+                hp.filtered_headers.insert("x-real-ip".to_string(), ip.clone());
+            }
             let req: Request = hp.get_req();
             match self.get_resp(req).await {
                 Err(e) => {
