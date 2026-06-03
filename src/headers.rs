@@ -96,9 +96,12 @@ impl RequestParser {
             .contains("multipart/form-data");
     }
     pub async fn check_is_keep_alive(&mut self) {
-        self.is_keep_alive = self.parsed_headers.contains_key("connection")
-            && self.parsed_headers.get("connection").unwrap()
-            .contains("keep-alive");
+        // HTTP/1.1: соединение persistent по умолчанию. Закрываем только если клиент
+        // явно прислал `Connection: close`.
+        self.is_keep_alive = match self.parsed_headers.get("connection") {
+            Some(v) => !v.to_lowercase().contains("close"),
+            None => true,
+        };
     }
     pub fn is_websocket_upgrade(&self) -> bool {
         let has_conn = self.parsed_headers.get("connection")

@@ -20,6 +20,8 @@ pub struct StreamHandler {
 	pub tls_stream: Option<TlsStream<TcpStream>>,
 	pub buffer: Vec<u8>,
 	pub peer_addr: Option<String>,
+	// Решение по текущему запросу: держать ли соединение живым (см. process()).
+	pub keep_alive: bool,
 }
 
 impl StreamHandler {
@@ -33,6 +35,7 @@ impl StreamHandler {
 			tls_stream: Some(tls_stream),
 			buffer: Vec::<u8>::new(),
 			peer_addr,
+			keep_alive: true,
 		}
 	}
 	fn headers_complete(&self) -> bool {
@@ -85,6 +88,7 @@ impl StreamHandler {
             hp.check_is_keep_alive().await;
             hp.parse_query();
 			let keep_alive = hp.is_keep_alive;
+			self.keep_alive = keep_alive;
 			let is_head = hp.get_header("method") == "head";
             if hp.is_websocket_upgrade() {
                 //println!("WS upgrade detected: host='{}' path='{}' headers_len={}", hp.get_header("host"), hp.get_header("path"), hp.headers_len);
@@ -121,7 +125,7 @@ impl StreamHandler {
                         if is_head {
                             self.write_resp_head(resp).await;
                         } else {
-                            let _ = self.tls_stream.as_mut().unwrap().write_all(&resp).await;
+                            self.write_resp(resp).await;
                         }
                     } else {
                         if is_head {
@@ -395,21 +399,29 @@ impl StreamHandler {
 		}
 	}
 
-	pub async fn write_resp(&mut self, resp: Vec<u8>) {
+	// Единая точка отправки ответа клиенту: если соединение закрываем (не keep-alive),
+	// честно сообщаем об этом заголовком `Connection: close`, иначе клиент по HTTP/1.1
+	// сочтёт соединение живым и переиспользует уже закрытый сокет.
+	async fn send(&mut self, resp: Vec<u8>) {
+		let resp = if self.keep_alive { resp } else { with_connection_close(resp) };
 		let _ = self.tls_stream.as_mut().unwrap().write_all(&resp).await;
 		// Без этого при больших ответах иногда бывает NS_ERROR_NET_PARTIAL_TRANSFER (в браузере).
 		let _ = self.tls_stream.as_mut().unwrap().flush().await;
 	}
 
+	pub async fn write_resp(&mut self, resp: Vec<u8>) {
+		self.send(resp).await;
+	}
+
 	pub async fn write_resp_head(&mut self, resp: Vec<u8>) {
 		let resp = strip_body(resp);
-		let _ = self.tls_stream.as_mut().unwrap().write_all(&resp).await;
+		self.send(resp).await;
 	}
 
 	pub async fn return_404_head(&mut self) {
 		let r = http::text_resp(404, "Not found".to_string());
 		let resp = strip_body(r.get_resp().into_bytes());
-		let _ = self.tls_stream.as_mut().unwrap().write_all(&resp).await;
+		self.send(resp).await;
 	}
 
 	pub async fn return_html_test(&mut self) {
@@ -418,23 +430,37 @@ impl StreamHandler {
 			\r\n\
 			Hello, world\
 			\r\n\r\n";
-		let resp = resp.to_string().into_bytes();
-		let _ = self.tls_stream.as_mut().unwrap().write_all(&resp).await;
+		self.send(resp.to_string().into_bytes()).await;
 	}
 
 	pub async fn return_static(&mut self, hp: RequestParser) {
 		match static_handler::get_static_file(hp).await {
-			Some(r) => { let _ = self.tls_stream.as_mut().unwrap().write_all(&r).await; },
+			Some(r) => self.send(r).await,
 			None => self.return_404().await,
 		};
 	}
 	pub async fn return_404(&mut self) {
 		let r = http::text_resp(404, "Not found".to_string());
-		let _ = self.tls_stream.as_mut().unwrap().write_all(&r.get_resp().as_bytes()).await;
+		self.send(r.get_resp().into_bytes()).await;
 	}
 	pub async fn return_413_entity_too_large(&mut self) {
 		let r = http::text_resp(413, "Request entity too large.".to_string());
-		let _ = self.tls_stream.as_mut().unwrap().write_all(&r.get_resp().as_bytes()).await;
+		self.send(r.get_resp().into_bytes()).await;
+	}
+}
+
+// Вставляет `Connection: close` после статусной строки (первый CRLF). Ответы miarh и
+// бэка заголовка Connection не содержат, так что дублирования не возникает.
+fn with_connection_close(resp: Vec<u8>) -> Vec<u8> {
+	match resp.windows(2).position(|w| w == b"\r\n") {
+		Some(pos) => {
+			let mut out = Vec::with_capacity(resp.len() + 19);
+			out.extend_from_slice(&resp[..pos + 2]);
+			out.extend_from_slice(b"Connection: close\r\n");
+			out.extend_from_slice(&resp[pos + 2..]);
+			out
+		}
+		None => resp,
 	}
 }
 

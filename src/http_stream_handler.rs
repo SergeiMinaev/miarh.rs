@@ -47,8 +47,11 @@ impl HttpStreamHandler {
             self.return_static(hp).await;
             return;
         }
+        // Этот обработчик одноразовый (только редирект на https) → соединение закрываем,
+        // поэтому честно сообщаем клиенту Connection: close.
         let resp: String = format!("HTTP/1.1 301 Moved Permanently\r\n\
             Location: https://{host}:443{path}\r\n\
+            Connection: close\r\n\
             Content-length: 0\r\n\r\n");
         self.write_resp(resp).await;
     }
