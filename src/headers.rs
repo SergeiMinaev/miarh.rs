@@ -274,7 +274,8 @@ pub fn parse_header_line(line: &str, parsed_headers: &mut HashMap<String, String
     } else if lowerline.starts_with("accept-encoding: ") {
         parse_accept_encoding(&lowerline, parsed_headers);
     } else if lowerline.starts_with("cookie: ") {
-        parse_cookies(&lowerline, parsed_headers);
+        // Значения кук регистрозависимы.
+        parse_cookies(line, parsed_headers);
     } else if lowerline.starts_with("upgrade: ") {
         parse_upgrade(&lowerline, parsed_headers);
     } else if lowerline.starts_with("sec-websocket-key: ") {
@@ -338,16 +339,17 @@ fn parse_accept_encoding(s: &str, r: &mut HashMap<String, String>) {
 }
 
 fn parse_cookies(s: &str, r: &mut HashMap<String, String>) {
-    let parts: Vec<&str> = s.split("cookie: ").collect();
-    if parts.len() != 2 {
+    if s.len() < "cookie: ".len() {
         println!("Invalid 'cookie' header.");
         return;
     }
-    let cookie = parts[1];
-    if let Ok(c) = Cookie::parse(cookie) {
-        let (name, value) = c.name_value();
-        if name == "session_id".to_string() && value.len() < 100 {
-            r.insert("session_id".to_string(), value.to_string());
+    let cookie = &s["cookie: ".len()..];
+    for c in Cookie::split_parse(cookie) {
+        if let Ok(c) = c {
+            let (name, value) = c.name_value();
+            if name == "session_id" && value.len() < 100 {
+                r.insert("session_id".to_string(), value.to_string());
+            }
         }
     }
 }
