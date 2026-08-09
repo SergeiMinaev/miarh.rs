@@ -378,7 +378,8 @@ fn parse_sec_ws_key(s: &str, r: &mut HashMap<String, String>) {
 
 fn parse_whitelisted_header(lower: &str, original: &str, filtered: &mut HashMap<String, String>) {
     // Whitelist of headers we want to preserve (case-insensitive).
-    const WHITELIST: [&str; 7] = [
+    const WHITELIST: [&str; 8] = [
+        "authorization",
         "x-tracker-upload-token",
         "x-device-id",
         "x-diag-token",

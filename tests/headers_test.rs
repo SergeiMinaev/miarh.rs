@@ -28,3 +28,13 @@ fn accept_head_method() {
     let r = parse_headers(&buf.as_bytes().to_vec());
     assert_eq!(true, r.is_valid());
 }
+
+#[test]
+fn preserves_authorization_header() {
+    let buf = "GET /api/agent/v1/activities HTTP/1.1\r\nHost: example.com\r\nAuthorization: Bearer SecretToken\r\n\r\n";
+    let r = parse_headers(&buf.as_bytes().to_vec());
+    assert_eq!(
+        Some("Bearer SecretToken"),
+        r.filtered_headers.get("authorization").map(String::as_str)
+    );
+}
